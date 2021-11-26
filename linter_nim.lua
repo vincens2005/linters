@@ -1,3 +1,4 @@
+-- mod-version:2
 local linter = require "plugins.linter"
 
 local pattern

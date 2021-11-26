@@ -1,5 +1,5 @@
 # linters
-Linters for https://github.com/rxi/lite
+Linters for [lite-xl](https://github.com/lite-xl/lite-xl)
 
 ## Available linters
 
@@ -92,10 +92,8 @@ The available configurations are:
 * linter\_box\_line\_limit - Number of columns in the warning box. (default: 80)
 * linter\_scan\_interval - Seconds between checks for results in the linter file. (default: 0.1)
 * warning\_font - Font to be used inside the warning box. (default: style.font)
-* linter\_trigger - Select how the linter is activated. (default: "save", options: ["save", "keypress"])
 
 Example configuration:
 ```lua
 config.warning_font = renderer.font.load(EXEDIR .. "/data/fonts/monospace.ttf", 13.5 * SCALE)
-config.linter_trigger = "keypress"
 ```

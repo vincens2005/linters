@@ -1,3 +1,4 @@
+-- mod-version:2
 local core = require "core"
 local config = require "core.config"
 local linter = require "plugins.linter"

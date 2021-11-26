@@ -1,3 +1,4 @@
+-- mod-version:2
 local core = require "core"
 local style = require "core.style"
 local command = require "core.command"
@@ -7,16 +8,9 @@ local StatusView = require "core.statusview"
 local Doc = require "core.doc"
 
 config.linter_box_line_limit = 80 -- characters limit
+
 config.linter_scan_interval = 0.1 -- scan every 100 ms
-
--- Available Triggers - "save" "keypress"
---
--- Most linters will not work fast enought to use keypress as the event, use it
--- only if you are sure of what you are doing. For keypress to work we enforce
--- auto save on every keypress.
-config.linter_trigger = "save"
 config.warning_font = style.font
-
 
 -- environments
 local is_windows = PATHSEP == "\\"
@@ -28,6 +22,14 @@ local cache = setmetatable({}, { __mode = "k" })
 local hover_boxes = setmetatable({}, { __mode = "k" })
 local linter_queue = {}
 local linters = {}
+
+local function split(str, sep)
+	local t = {}
+	for s in str:gmatch("([^"..sep.."]+)") do
+		table.insert(t, s)
+	end
+	return t
+end
 
 local function completed(proc)
   local current_time = os.time()
@@ -42,20 +44,9 @@ local function completed(proc)
     return true
   end
 
-  local fp = io.open(proc.status)
-  if io.type(fp) == "file" then
-    local output = ""
-    local exitcode = fp:read("*n")
-    fp:close()
-    os.remove(proc.status)
-
-    fp = io.open(proc.output, "r")
-    if io.type(fp) == "file" then
-      output = fp:read("*a")
-      fp:close()
-      os.remove(proc.output)
-    end
-
+  if not proc.proc:running() then
+    local output = proc.proc:read_stdout() or ""
+    local exitcode = proc.proc:returncode()
     proc.callback({ output = output, exitcode = exitcode })
     return true
   end
@@ -85,28 +76,18 @@ end
 core.add_thread(lint_completion_thread)
 
 local function async_run_lint_cmd(doc, path, linter, callback, timeout)
-  timeout = timeout or 10
-  local cmd = linter.command:gsub("$FILENAME", string.format("%q", path))
+  timeout = timeout or 500
+  local cmd = linter.command:gsub("$FILENAME", path)
   local args = table.concat(linter.args or {}, " ")
   cmd = cmd:gsub("$ARGS", args)
-
-  local output_file = core.temp_filename()
-  local status_file = core.temp_filename()
-  local start_time = os.time()
-  cmd = string.format("%s > %q 2>&1 %s %s > %q",
-                      cmd,
-                      output_file,
-                      command_sep,
-                      exitcode_cmd,
-                      status_file)
-  system.exec(cmd)
+  local cmd_table = split(cmd, "(.-)%s")
+  local proc = process.start(cmd_table, {timeout = timeout})
 
   table.insert(linter_queue, {
-    output = output_file,
-    status = status_file,
-    start = start_time,
+    proc = proc,
     timeout = timeout,
     callback = callback,
+    start = os.time(),
     doc = setmetatable({ ref = doc }, { __mode = 'v' })
   })
 end
@@ -193,7 +174,7 @@ local function async_get_file_warnings(doc, warnings, linter, callback)
       return callback(nil, error)
     end
 
-    local text = data.output
+    local text = data.output or ""
     if linter.expected_exitcodes then
       local valid_code = false
       for _, exitcode in ipairs(linter.expected_exitcodes) do
@@ -302,41 +283,6 @@ function Doc:new(...)
   update_cache(self)
 end
 
--- Document action overrides to make trigger on keypress work.
--- Keypress trigger works by saving on every adition / removal.
-local text_input = Doc.text_input
-function Doc:text_input(...)
-  text_input(self, ...)
-  if config.linter_trigger == "keypress" then
-    self:save()
-  end
-end
-
-local delete_to = Doc.delete_to
-function Doc:delete_to(...)
-  delete_to(self, ...)
-  if config.linter_trigger == "keypress" then
-    self:save()
-  end
-end
-
-local undo = Doc.undo
-function Doc:undo(...)
-  undo(self, ...)
-  if config.linter_trigger == "keypress" then
-    self:save()
-  end
-end
-
-local redo = Doc.redo
-function Doc:redo(...)
-  redo(self, ...)
-  if config.linter_trigger == "keypress" then
-    self:save()
-  end
-end
-
-
 
 local on_mouse_wheel = DocView.on_mouse_wheel
 function DocView:on_mouse_wheel(...)
@@ -437,7 +383,7 @@ end
 
 
 local function draw_warning_box(hovered_item)
-  local font = config.warning_font
+  local font = style.font
   local th = font:get_height()
   local pad = style.padding
 

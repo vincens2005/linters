@@ -1,3 +1,4 @@
+-- mod-version:2
 -- linter for eslint
 
 local config = require "core.config"
