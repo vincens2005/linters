@@ -1,4 +1,4 @@
--- mod-version:2
+-- mod-version:3
 local linter = require "plugins.linter"
 local PATHSEP = package.config:sub(1, 1)
 

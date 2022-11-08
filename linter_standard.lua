@@ -1,4 +1,4 @@
--- mod-version:2
+-- mod-version:3
 -- this is for standardjs linting
 
 local config = require "core.config"

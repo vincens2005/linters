@@ -1,4 +1,4 @@
--- mod-version:2
+-- mod-version:3
 -- this is for the jshint linter
 
 local config = require "core.config"
